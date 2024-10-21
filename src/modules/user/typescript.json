@@ -1,0 +1,13 @@
+"Type GraphQL Resolver": {
+    "prefix": "resolver",
+    "body": [
+        "import { Resolver } from \"type-graphql\";",
+        ""
+        "@Resolver()",
+        "export class $1Resolver {",
+        " @$2()",
+        " async $3() {}",
+        "}"
+    ],
+    "description": "TypeGraphQL Resolver"
+}
