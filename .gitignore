@@ -1,24 +1,3 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
-
-# Dependency directories
-node_modules/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Output directories
-dist/
-build/
-
-# Misc
-.DS_Store
-.env
+node_modules
+images
+*.logs

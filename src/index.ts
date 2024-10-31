@@ -1,73 +1,92 @@
-import express from "express";
 import { ApolloServer } from "apollo-server-express";
-import { buildSchema } from "type-graphql";
-import "reflect-metadata";
-import { createConnection } from "typeorm";
-import { GraphQLError, GraphQLFormattedError } from "graphql";
-import session from "express-session";
-import cors from "cors";
-import { redis } from "./redis";
-import { RegisterResolver } from "./modules/user/Register";
 import connectRedis from "connect-redis";
+import cors from "cors";
+import Express from "express";
+import session from "express-session";
+import "reflect-metadata";
+import { formatArgumentValidationError, useContainer } from "type-graphql";
+import { Container } from "typedi";
+import * as typeorm from "typeorm";
+import { createConnection } from "typeorm";
+import { redis } from "./redis";
+import { createAuthorsLoader } from "./utils/authorsLoader";
+import { createSchema } from "./utils/createSchema";
 
-const RedisStore = connectRedis(session);
+useContainer(Container);
+typeorm.useContainer(Container);
 
 const main = async () => {
-    await createConnection();
+  await createConnection();
 
-    const schema = await buildSchema({
-        resolvers: [RegisterResolver],
-        authChecker: ({ context: { req } }) => {
-            return !!req.session.userId;
-        },
-    });
+  const schema = await createSchema();
 
-    const apolloServer = new ApolloServer({
-        schema,
-        formatError: formatArgumentValidationError,
-        context: ({ req, res }: any) => ({ req, res }),
-    });
+  const apolloServer = new ApolloServer({
+    schema,
+    formatError: formatArgumentValidationError,
+    context: ({ req, res }: any) => ({
+      req,
+      res,
+      authorsLoader: createAuthorsLoader()
+    }),
+    validationRules: [
+      // queryComplexity({
+      //   // The maximum allowed query complexity, queries above this threshold will be rejected
+      //   maximumComplexity: 8,
+      //   // The query variables. This is needed because the variables are not available
+      //   // in the visitor of the graphql-js library
+      //   variables: {},
+      //   // Optional callback function to retrieve the determined query complexity
+      //   // Will be invoked weather the query is rejected or not
+      //   // This can be used for logging or to implement rate limiting
+      //   onComplete: (complexity: number) => {
+      //     console.log("Query Complexity:", complexity);
+      //   },
+      //   estimators: [
+      //     // Using fieldConfigEstimator is mandatory to make it work with type-graphql
+      //     fieldConfigEstimator(),
+      //     // This will assign each field a complexity of 1 if no other estimator
+      //     // returned a value. We can define the default value for field not explicitly annotated
+      //     simpleEstimator({
+      //       defaultComplexity: 1
+      //     })
+      //   ]
+      // }) as any
+    ]
+  });
 
-    const app = express();
+  const app = Express();
 
-    app.use(
-        cors({
-            credentials: true,
-            origin: "http://localhost:3000",
-        })
-    );
+  const RedisStore = connectRedis(session);
 
-    app.use(
-        session({
-            store: new RedisStore({
-                client: redis as any,
-            }),
-            name: "qid",
-            secret: "aslkjoiq12312",
-            resave: false,
-            saveUninitialized: false,
-            cookie: {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                maxAge: 1000 * 60 * 60 * 24 * 7,
-            },
-        })
-    );
+  app.use(
+    cors({
+      credentials: true,
+      origin: "http://localhost:3000"
+    })
+  );
 
-    await apolloServer.start();
-    apolloServer.applyMiddleware({ app });
+  app.use(
+    session({
+      store: new RedisStore({
+        client: redis as any
+      }),
+      name: "qid",
+      secret: "aslkdfjoiq12312",
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        maxAge: 1000 * 60 * 60 * 24 * 7 * 365 // 7 years
+      }
+    })
+  );
 
-    app.listen(4000, () => {
-        console.log("Server started on http://localhost:4000/graphql");
-    });
+  apolloServer.applyMiddleware({ app, cors: false });
+
+  app.listen(4000, () => {
+    console.log("server started on http://localhost:4000/graphql");
+  });
 };
 
-main().catch((err) => console.error(err));
-
-function formatArgumentValidationError(error: GraphQLError): GraphQLFormattedError {
-    return {
-        message: error.message,
-        locations: error.locations,
-        path: error.path,
-    };
-}
+main().catch(err => console.error(err));

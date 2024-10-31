@@ -1,26 +1,20 @@
-import { MyContext } from "src/types/MyContext";
-import { Ctx, Mutation, Resolver } from "type-graphql";
+import { Resolver, Mutation, Ctx } from "type-graphql";
+import { MyContext } from "../../types/MyContext";
 
 @Resolver()
 export class LogoutResolver {
-    @Mutation(() => Boolean)
-    async logout(@Ctx() ctx: MyContext): Promise<Boolean> {
-        return new Promise((resolve, reject) => {
-            // Ensure session exists before attempting to destroy it
-            if (!ctx.req.session) {
-                return resolve(false);
-            }
+  @Mutation(() => Boolean)
+  async logout(@Ctx() ctx: MyContext): Promise<Boolean> {
+    return new Promise((res, rej) =>
+      ctx.req.session!.destroy(err => {
+        if (err) {
+          console.log(err);
+          return rej(false);
+        }
 
-            ctx.req.session.destroy((err) => {
-                if (err) {
-                    console.error('Session destruction error:', err);
-                    return reject(false);
-                }
-
-                // Clear the session cookie
-                ctx.res.clearCookie('qid');
-                return resolve(true);
-            });
-        });
-    }
+        ctx.res.clearCookie("qid");
+        return res(true);
+      })
+    );
+  }
 }
